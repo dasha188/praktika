@@ -77,7 +77,6 @@ class HSMClient:
         self.keys = {}
 
     def generate_keypair(self, label: str):
-        # Генерация через OpenSSL CLI
         key_path = f"/tmp/{label}_key.pem"
         subprocess.run(["openssl", "genrsa", "-out", key_path, "2048"], check=True)
         with open(key_path, "rb") as f:
@@ -95,7 +94,6 @@ class HSMClient:
 hsm_client = HSMClient()
 
 def initialize_ca():
-    # Создаём ключ через CLI
     ca_key_path = "/tmp/ca_key.pem"
     subprocess.run(["openssl", "genrsa", "-out", ca_key_path, "2048"], check=True)
     with open(ca_key_path, "rb") as f:
@@ -117,7 +115,6 @@ def initialize_ca():
     ])
     ca_cert_crypto.sign(ca_key_crypto, 'sha256')
 
-    # Сохраняем в cryptography-объект
     ca_cert_crypto_bytes = crypto.dump_certificate(crypto.FILETYPE_PEM, ca_cert_crypto)
     ca_cert = x509.load_pem_x509_certificate(ca_cert_crypto_bytes, default_backend())
 
@@ -145,7 +142,6 @@ async def issue_certificate(
         db: Session = Depends(get_db)
 ):
     try:
-        # Генерация ключа через CLI
         key_path = f"/tmp/cert_key_{uuid4()}.pem"
         subprocess.run(["openssl", "genrsa", "-out", key_path, "2048"], check=True)
         with open(key_path, "rb") as f:
@@ -160,7 +156,6 @@ async def issue_certificate(
         csr_crypto.set_pubkey(key_crypto)
         csr_crypto.sign(key_crypto, 'sha256')
 
-        # Подписываем CSR с помощью CA
         cert_crypto = crypto.X509()
         cert_crypto.set_subject(csr_crypto.get_subject())
         cert_crypto.set_serial_number(int(uuid4().int))
@@ -169,7 +164,6 @@ async def issue_certificate(
         cert_crypto.set_issuer(ca_cert.subject)
         cert_crypto.set_pubkey(csr_crypto.get_pubkey())
 
-        # Подписываем сертификат
         ca_key = hsm_client.get_keypair(settings.CA_KEY_LABEL)[1]._private_key
         ca_key_crypto = crypto.PKey.from_cryptography_key(ca_key)
         cert_crypto.sign(ca_key_crypto, 'sha256')
@@ -385,3 +379,4 @@ def revoke_certificate(serial_number: str, db: Session = Depends(get_db)):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8000)
+
